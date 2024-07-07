@@ -1,0 +1,40 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  Ptarmigan and Arctic ground squirrel abundance and
+  distribution
+message: >-
+  If you use this dataset, please cite it using the metadata
+  from this file.
+type: dataset
+authors:
+  - given-names: Michaela
+    email: michagustaf@gmail.com
+    family-names: Gustafson
+  - given-names: Jennifer D.
+    family-names: McCabe
+  - given-names: Brian W.
+    family-names: Rolek
+  - given-names: Leah
+    family-names: Dunn
+  - given-names: Travis L.
+    family-names: Booms
+  - given-names: Michael T.
+    family-names: Henderson
+  - given-names: David L.
+    family-names: Anderson
+  - given-names: Jennyffer
+    family-names: Cruz
+identifiers:
+  - type: url
+    value: >-
+      https://github.com/michaelagustafson/abundance_distribution_manuscript
+repository-code: >-
+  https://github.com/michaelagustafson/abundance_distribution_manuscript
+abstract: >-
+  Code and data for Gustafson et al. ptarmigan and Arctic
+  ground squirrel abundance and distribution manuscript
+license: CC0-1.0
+date-released: '2024-07-07'
