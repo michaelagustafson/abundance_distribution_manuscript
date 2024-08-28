@@ -1,0 +1,593 @@
+---
+title: "Prey Abundance and Gyrfalcon Occupancy Relationship"
+format: html
+editor: visual
+---
+
+# Library
+
+```{r library}
+
+library(tidyr)
+library(dplyr)
+library(sf)
+library(terra)
+library(ggplot2)
+library(exactextractr)
+```
+
+# Load Data for Masking Abundance Rasters
+
+```{r dataload}
+
+# 1. standardized vegetation data for each prey survey point
+
+veg_points_standardized <- read.csv("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/si_obs_covs_scaled_16nov23.csv")
+
+# keep only tundra, tussock, low shrub, tall shrub, and sparseveg
+veg_points_standardized <- select(veg_points_standardized, id, tundra, tussock, tallshrub, lowshrub, sparseveg)
+
+# 2. standardized vegetation raster layers
+
+tundra <- terra::rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/percent cover standardized/tundra.tif")
+
+tussock <- terra::rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/percent cover standardized/tussock.tif")
+
+tallshrub <- terra::rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/percent cover standardized/tallshrub.tif")
+
+lowshrub <- terra::rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/percent cover standardized/lowshrub.tif")
+
+sparseveg <- terra::rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/percent cover standardized/sparseveg.tif")
+
+
+# 3. abundance layer for each species
+
+willow_abun <- rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/Willow_Prediction_22Mar24/Predicted.tif")
+
+rock_abun <- rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/Rock_Prediction_22Mar24/Predicted.tif")
+
+squirrel_abun <- rast("F:/gyrf_analysis/MSgyrfalcon/MSgyrfalcon/Squirrel_Prediction_22Mar24/Predicted.tif")
+
+```
+
+### Check CRS of veg and abundance layers
+
+```{r check crs}
+
+
+crs(tallshrub)
+crs(tundra)
+crs(tussock)
+crs(lowshrub)
+crs(sparseveg)
+crs(willow_abun)
+crs(rock_abun)
+crs(squirrel_abun)
+
+
+# apparently squirrel doesn't have CRS??????? We'll set it here the same as all others
+
+# Get the CRS from Raster 2
+crs_raster2 <- crs(rock_abun)
+
+# Assign the CRS from Raster 2 to Raster 1
+crs(squirrel_abun) <- crs_raster2
+
+```
+
+## Begin masking data
+
+Need to mask species abundance layers with the min and max observed values of each habitat type (the percentages we calculated for a 400m radius around each prey survey point) to remove any pixels that contain percentages greater than or less than what we actually observed for this more precise prediction of abundance within a Gyrfalcon territory.
+
+```{r willow}
+
+
+veg_points<- as.data.frame(veg_points_standardized)
+
+#mask to observed values
+min(veg_points$tundra); max(veg_points$tundra)
+min(veg_points$tussock); max(veg_points$tussock)
+min(veg_points$tallshrub); max(veg_points$tallshrub)
+min(veg_points$lowshrub); max(veg_points$lowshrub)
+min(veg_points$sparseveg);max(veg_points$sparseveg)
+
+willow_mask <- willow_abun
+
+willow_mask[ tundra < min(veg_points$tundra) ] <- NA
+willow_mask[ tundra > max(veg_points$tundra) ] <- NA
+willow_mask[ tussock < min(veg_points$tussock) ] <- NA
+willow_mask[ tussock > max(veg_points$tussock) ] <- NA
+willow_mask[ tallshrub < min(veg_points$tallshrub) ] <- NA
+willow_mask[ tallshrub > max(veg_points$tallshrub) ] <- NA
+
+plot(willow_mask)
+
+
+
+```
+
+```{r rock}
+
+rock_mask <- rock_abun
+
+rock_mask[ tundra < min(veg_points$tundra) ] <- NA
+rock_mask[ tundra > max(veg_points$tundra) ] <- NA
+rock_mask[ lowshrub < min(veg_points$lowshrub) ] <- NA
+rock_mask[ lowshrub > max(veg_points$lowshrub) ] <- NA
+rock_mask[ sparseveg < min(veg_points$sparseveg) ] <- NA
+rock_mask[ sparseveg > max(veg_points$sparseveg) ] <- NA
+
+plot(rock_mask)
+
+```
+
+```{r squirrel}
+
+squirrel_mask <- squirrel_abun
+
+squirrel_mask[ tundra < min(veg_points$tundra) ] <- NA
+squirrel_mask[ tundra > max(veg_points$tundra) ] <- NA
+squirrel_mask[ lowshrub < min(veg_points$lowshrub) ] <- NA
+squirrel_mask[ lowshrub > max(veg_points$lowshrub) ] <- NA
+squirrel_mask[ sparseveg < min(veg_points$sparseveg) ] <- NA
+squirrel_mask[ sparseveg > max(veg_points$sparseveg) ] <- NA
+
+plot(squirrel_mask)
+
+```
+
+# Create buffers around territory center points
+
+### Load point data for creating territory buffers
+
+```{r load data}
+
+# territory center points from Booms data - currently in a geographic CRS of WGS84
+points_sf <- st_read("F:/Gyrfalcon Survey Data/booms_centroids_shapefile.shp")
+
+# not using Bente Data so keep column title as GyrfalconTerritory
+#points_sf <- points_sf %>%
+  #rename(GyrfalconTerritory = NT_FR)
+
+# territories surveyed every year 2016-2022 data
+
+gyr_terrs <- read.csv("F:/Gyrfalcon Survey Data/gyrfocccounts.csv")
+
+```
+
+### Pull out survey points that were surveyed every year from 2016-2022
+
+```{r select terrs}
+
+# get list of territory names to keep from points file
+
+names_to_keep <- gyr_terrs$GyrfalconTerritory
+
+# filter the points
+
+filtered_points <- points_sf %>%
+  filter(GyrfalconTerritory %in% names_to_keep)
+
+```
+
+### Define buffer zones
+
+Create 15km buffers around each point
+
+First, need to convert points from geographic coordinate system to a projected coordinate system:
+
+If you attempt to create a buffer in a geographic CRS, the distances are not accurately represented because they are based on degrees rather than meters or feet. This can lead to incorrect buffer sizes and shapes.
+
+```{r buffer zones}
+
+# Convert points to a projected crs if not already (e.g., UTM)
+st_crs(filtered_points) # currently in WGS84
+crs(willow_layer) # rasters are in NAD83 which is a projected coordinate system so we will use those to transfer the points to the same projection
+
+points_utm <- st_transform(filtered_points, crs = st_crs(willow_layer))
+
+# separate UTMS into separate columns for northing and easting values
+
+#points_utm <- points_utm %>%
+  #mutate(
+   # easting = st_coordinates(geometry)[, 1],  # UTM easting (X coordinate)
+    #northing = st_coordinates(geometry)[, 2]  # UTM northing (Y coordinate)
+  #)
+
+
+# Convert sf points to SpatVector for 'terra'
+points_vect <- vect(points_utm)
+
+# create a 15km buffer around each point
+
+buffers <- buffer(points_vect, width = 15000)
+
+# save as a shapefile
+writeVector(buffers, "F:/Gyrfalcon Survey Data/buffered_territories.shp")
+```
+
+# Calculate area of buffered points
+
+Calculate areas of buffered points using exactextrctr package - which is fine with rasters and SpatRasters, but not SpatVectors so will need to use sf object of the buffered points
+
+### Load buffered points shapefile as sf object
+
+If necessary, reload buffer shapefile
+
+```{r load buff shp}
+
+# buffers <- st_read("F:/Gyrfalcon Survey Data/buffered_territories.shp")
+```
+
+## Calculate area of each buffer using masked rasters from above
+
+Using the 'exact_extract' function from the 'exactextractr' package and with the function 'count' counts the number (and fraction) of cells with non-NA values.
+
+We will then multiple the number of non-NA cells covered by the buffer polygon by the pixel area - in this case each pixel in the raster represents 800x800 meters. So multiple the cell count by 640,000sqm to get total number of square meters covered in the maske buffer. Then can convert that into square kilometers.
+
+```{r calc area}
+
+??exact_extract
+
+# Willow Ptarmigan  
+willow_extract <- exactextractr::exact_extract(willow_mask, buffers, 'count', include_area = TRUE)  
+
+#convert into table  
+willow_extract <- as.data.frame(willow_extract)   
+
+buffer_ids <- buffers$GyrfalconT  
+
+willow_buffer_areas <- data.frame(GyrfalconTerritory = buffer_ids, Count = willow_extract$willow_extract) 
+
+# convert cell counts to area in sqm and sqkm
+
+willow_buffer_areas$area_sqm <- willow_buffer_areas$Count*640000
+
+#divide area_sqm by 1000000 (1000x1000m)
+
+willow_buffer_areas$area_sqkm <- willow_buffer_areas$area_sqm/1000000
+
+
+
+# Rock Ptarmigan  
+
+rock_extract <- exactextractr::exact_extract(rock_mask, buffers, 'count')  
+
+#convert into table  
+rock_extract <- as.data.frame(rock_extract)   
+
+rock_buffer_areas <- data.frame(GyrfalconTerritory = buffer_ids, Count = rock_extract$rock_extract)   
+
+# convert cell counts to area in sqm and sqkm
+
+rock_buffer_areas$area_sqm <- rock_buffer_areas$Count*640000
+
+#divide area_sqm by 1000000 (1000x1000m)
+
+rock_buffer_areas$area_sqkm <- rock_buffer_areas$area_sqm/1000000
+
+# Squirrel Ptarmigan 
+
+squirrel_extract <- exactextractr::exact_extract(squirrel_mask, buffers, 'count')
+
+#convert into table  
+squirrel_extract <- as.data.frame(squirrel_extract)   
+
+squirrel_buffer_areas <- data.frame(GyrfalconTerritory = buffer_ids, Count = squirrel_extract$squirrel_extract)
+
+# convert cell counts to area in sqm and sqkm
+
+squirrel_buffer_areas$area_sqm <- squirrel_buffer_areas$Count*640000
+
+#divide area_sqm by 1000000 (1000x1000m)
+
+squirrel_buffer_areas$area_sqkm <- squirrel_buffer_areas$area_sqm/1000000
+
+```
+
+# Extract abundance sums
+
+```{r sum extract}
+
+willow_sum <- exact_extract(willow_mask, buffers, 'sum')
+willow_sum <- as.data.frame(willow_sum)   
+willow_terr_sum <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceSum = willow_sum$willow_sum)
+
+
+rock_sum <- exact_extract(rock_mask, buffers, 'sum')
+rock_sum <- as.data.frame(rock_sum)
+rock_terr_sum <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceSum = rock_sum$rock_sum)
+
+
+squirrel_sum <- exact_extract(squirrel_mask, buffers, 'sum')
+squirrel_sum <- as.data.frame(squirrel_sum)
+squirrel_terr_sum <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceSum = squirrel_sum$squirrel_sum)
+
+```
+
+# Extract abundance means
+
+```{r mean extract}
+
+willow_mean <- exact_extract(willow_mask, buffers, 'mean')
+willow_mean <- as.data.frame(willow_mean)   
+willow_terr_mean <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceMean = willow_mean$willow_mean)
+
+
+rock_mean <- exact_extract(rock_mask, buffers, 'mean')
+rock_mean <- as.data.frame(rock_mean)
+rock_terr_mean <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceMean = rock_mean$rock_mean)
+
+
+squirrel_mean <- exact_extract(squirrel_mask, buffers, 'mean')
+squirrel_mean <- as.data.frame(squirrel_mean)
+squirrel_terr_mean <- data.frame(GyrfalconTerritory = buffer_ids, AbundanceMean = squirrel_mean$squirrel_mean)
+
+
+```
+
+### Combine in dataframe with gyr territories and masked buffer sizes
+
+and did a quick test on the willow ptarmigan that the 'abundance mean' calculated from exact extract is the average density (individuals/800x800m2) for each territory
+
+```{r df mashup}
+
+# Willow Ptarmigan
+
+willow_mashup <- left_join(willow_buffer_areas, willow_terr_sum, by = "GyrfalconTerritory")
+
+willow_mashup <- left_join(willow_mashup, willow_terr_mean, by = "GyrfalconTerritory")
+
+# calculate 'willow ptarmigan per 800x800m area' for each territory?
+
+willow_mashup$density_per800 <- willow_mashup$AbundanceSum/willow_mashup$Count
+
+
+# Rock Ptarmigan
+
+rock_mashup <- left_join(rock_buffer_areas, rock_terr_sum, by = "GyrfalconTerritory")
+
+rock_mashup <- left_join(rock_mashup, rock_terr_mean, by = "GyrfalconTerritory")
+
+# squirrel
+
+squirrel_mashup <- left_join(squirrel_buffer_areas, squirrel_terr_sum, by = "GyrfalconTerritory")
+
+squirrel_mashup <- left_join(squirrel_mashup, squirrel_terr_mean, by = "GyrfalconTerritory")
+```
+
+Add column of how many years territory was occupied by Gyrfalcons
+
+```{r add gyr occ}
+
+# separate territory ID column and years occupied
+gyr_occ <- gyr_terrs[,c(2, 15)]
+
+# add to mashups
+
+
+willow_mashup2 <- left_join(willow_mashup, gyr_occ, by = 'GyrfalconTerritory')
+
+rock_mashup2 <- left_join(rock_mashup, gyr_occ, by = 'GyrfalconTerritory')
+
+squirrel_mashup2 <- left_join(squirrel_mashup, gyr_occ, by = 'GyrfalconTerritory')
+```
+
+# Plot
+
+```{r plots}
+
+# Willow mean density:
+
+w_mean_plot <- ggplot(willow_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Willow Ptarmigan mean density vs. number of years territory was occupied by Gyrfalcons",
+    x = "Willow Ptarmigan density (males/640,000m2)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+w_mean_plot
+
+#ggsave("F:/Gyrfalcon Survey Data/plots/willow_occ.png", plot = w_mean_plot, width = 15, height = 10, dpi = 300)
+
+# Willow abundance sum:
+
+w_sum_plot <- ggplot(willow_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Willow Ptarmigan abundance vs. number of years territory was occupied by Gyrfalcons",
+    x = "Willow Ptarmigan abundance",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+w_sum_plot
+
+#ggsave("F:/Gyrfalcon Survey Data/plots/willow_occ_sum.png", plot = w_sum_plot, width = 15, height = 10, dpi = 300)
+
+
+
+
+
+# rock ptarmigan
+
+# mean density
+
+rock_mean_plot <- ggplot(rock_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan mean density vs. number years territory was occupied",
+    x = "Mean density (males/640,000m2)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+rock_mean_plot
+
+# abundance sum
+
+rock_sum_plot <- ggplot(rock_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan territory abundance vs. number years territory was occupied",
+    x = "Abundance (males)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+rock_sum_plot
+
+# squirrel
+
+sq_mean_plot <- ggplot(squirrel_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Squirrel mean density vs. number of years territory was occupied by Gyrfalcons",
+    x = "Mean density (squirrels/640,000m2)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+sq_mean_plot
+
+# squirrel sum
+
+sq_sum_plot <- ggplot(squirrel_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Squirrel territory abundance vs. number years territory was occupied",
+    x = "Abundance (squirrels)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+sq_sum_plot
+
+```
+
+```{}
+```
+
+# Plots looking at abundance within territories occupied no matter what species
+
+```{r all species plots}
+
+all_species_occ <- read.csv("F:/Gyrfalcon Survey Data/all_spec_all_terrs_occ.csv")
+
+all_species_occ2 <- all_species_occ[,c(2, 15)]
+# combine with abundance counts for each species
+
+
+# Willow
+
+willow_mashup_allspecies <- left_join (all_species_occ2, willow_mashup, by = "GyrfalconTerritory")
+
+
+w_mean_plot2 <- ggplot(willow_mashup_allspecies, aes(x = AbundanceMean, y = years_occ_by_all)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Squirrel mean density vs. number of years territory was occupied by any species",
+    x = "Mean density (males/640,000m2)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+print(w_mean_plot2)
+
+
+###### Need to fix row for T08 - not sure why data didn't match up
+
+
+
+# Rock
+
+rock_mashup_allspecies <- left_join(all_species_occ2, rock_mashup, by = "GyrfalconTerritory")
+
+#plot
+
+r_mean_plot2 <- ggplot(rock_mashup_allspecies, aes(x = AbundanceMean, y = years_occ_by_all)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan mean density vs. number of years territory was occupied by any species",
+    x = "Mean density (males/640,000m2)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+plot(r_mean_plot2)
+
+
+
+# Squirrel
+
+squirrel_mashup_allspecies <- left_join(all_species_occ2, squirrel_mashup, by = "GyrfalconTerritory")
+
+
+###################### PLOTS ###################
+
+# Willow Mean
+
+
+
+
+```
+
+# Plots looking at abundance in territories occupied by a Gyrfalcon at least once since 2016
+
+```{r leastonegyr}
+
+least_one_gyr_occ <- read.csv("F:/Gyrfalcon Survey Data/all_spec_least1gyr_terrs_occ.csv")
+
+least_one_gyr_occ2 <- least_one_gyr_occ[,c(2,15)]
+# Combine with abundance estimates of each species
+
+# Willow
+
+willow_mashup_onegyr <- left_join(least_one_gyr_occ2, willow_mashup, by = "GyrfalconTerritory")
+
+
+
+willow_mean_plot3 <- ggplot(willow_mashup_onegyr, aes(x = AbundanceMean, y = years_occ)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Willow Ptarmigan mean density vs. number years territory was occupied",
+    x = "Mean density (males/640,000m2)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_minimal()
+
+willow_mean_plot3
+# Rock
+
+rock_mashup_onegyr <- left_join(least_one_gyr_occ2, rock_mashup, by = "GyrfalconTerritory")
+
+# Squirrel
+
+squirrel_mashup_onegyr <- left_join(least_one_gyr_occ2, squirrel_mashup, by = "GyrfalconTerritory")
+
+```
+
+```{r save workspace}
+
+save.image(file = "F:/Gyrfalcon Survey Data/abundanceXoccupancy_workspace.RData")
+```
