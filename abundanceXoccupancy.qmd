@@ -356,6 +356,28 @@ squirrel_mashup <- left_join(squirrel_buffer_areas, squirrel_terr_sum, by = "Gyr
 squirrel_mashup <- left_join(squirrel_mashup, squirrel_terr_mean, by = "GyrfalconTerritory")
 ```
 
+## Calculate sum(densities)/sum(pixelareas)
+
+Units are male ptarmigan or squirrels per square km aka density per territory?
+
+```{r more calcs}
+
+# Willow
+
+willow_mashup$territory_density <- willow_mashup$AbundanceSum/willow_mashup$area_sqkm
+
+
+# Rock
+
+rock_mashup$territory_density <- rock_mashup$AbundanceSum/rock_mashup$area_sqkm
+
+
+# Squirrel
+
+squirrel_mashup$territory_density <- squirrel_mashup$AbundanceSum/squirrel_mashup$area_sqkm
+
+```
+
 Add column of how many years territory was occupied by Gyrfalcons
 
 ```{r add gyr occ}
@@ -373,221 +395,456 @@ rock_mashup2 <- left_join(rock_mashup, gyr_occ, by = 'GyrfalconTerritory')
 squirrel_mashup2 <- left_join(squirrel_mashup, gyr_occ, by = 'GyrfalconTerritory')
 ```
 
-# Plot
+# Plots looking at abundance within territories occupied by only Gyrfalcons
+
+The following plots are plotting the density per territory (sum(density)/sum(pixelareas)) vs years occupied by Gyrfalcons only since 2016. These still include territories that had 0 years occupancy by Gyrfalcons since 2016. Only years occupied by gyrfalcons are considered in the 'years occupied'
+
+#### Willow Ptarmigan
 
 ```{r plots}
 
 # Willow mean density:
 
-w_mean_plot <- ggplot(willow_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Willow Ptarmigan mean density vs. number of years territory was occupied by Gyrfalcons",
-    x = "Willow Ptarmigan density (males/640,000m2)",
-    y = "Number of Years Occupied by Gyrfalcons",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-w_mean_plot
-
-#ggsave("F:/Gyrfalcon Survey Data/plots/willow_occ.png", plot = w_mean_plot, width = 15, height = 10, dpi = 300)
-
-# Willow abundance sum:
-
-w_sum_plot <- ggplot(willow_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
+w_density_plot <- ggplot(willow_mashup2, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
   geom_point(aes(color = GyrfalconTerritory), size = 3) +
    #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
   labs(
-    title = "Willow Ptarmigan abundance vs. number of years territory was occupied by Gyrfalcons",
-    x = "Willow Ptarmigan abundance",
-    y = "Number of Years Occupied by Gyrfalcons",
+    title = "Willow Ptarmigan mean density vs. \n number of years territory was occupied by Gyrfalcons",
+    x = "Density per territory (males/sqkm)",
+    y = "Number years occupied by Gyrfalcons",
     color = "Territory Name"
   ) +
-  theme_minimal()
+  theme_classic(base_size = 25)
 
-w_sum_plot
+w_density_plot
 
-#ggsave("F:/Gyrfalcon Survey Data/plots/willow_occ_sum.png", plot = w_sum_plot, width = 15, height = 10, dpi = 300)
-
-
+ggsave("F:/Gyrfalcon Survey Data/plots/willow_gyr_hist.png", plot = w_density_plot, width = 15, height = 10, dpi = 300)
 
 
-
-# rock ptarmigan
-
-# mean density
-
-rock_mean_plot <- ggplot(rock_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Rock Ptarmigan mean density vs. number years territory was occupied",
-    x = "Mean density (males/640,000m2)",
-    y = "Number of Years Occupied",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-rock_mean_plot
-
-# abundance sum
-
-rock_sum_plot <- ggplot(rock_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Rock Ptarmigan territory abundance vs. number years territory was occupied",
-    x = "Abundance (males)",
-    y = "Number of Years Occupied",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-rock_sum_plot
-
-# squirrel
-
-sq_mean_plot <- ggplot(squirrel_mashup2, aes(x = AbundanceMean, y = years_occ_by_Gyrfalcon)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Squirrel mean density vs. number of years territory was occupied by Gyrfalcons",
-    x = "Mean density (squirrels/640,000m2)",
-    y = "Number of Years Occupied",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-sq_mean_plot
-
-# squirrel sum
-
-sq_sum_plot <- ggplot(squirrel_mashup2, aes(x = AbundanceSum, y = years_occ_by_Gyrfalcon)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Squirrel territory abundance vs. number years territory was occupied",
-    x = "Abundance (squirrels)",
-    y = "Number of Years Occupied",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-sq_sum_plot
 
 ```
 
-```{}
+#### Rock Ptarmigan
+
+```{r rp plots}
+
+
+rock_density_plot <- ggplot(rock_mashup2, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan density vs. \n number years territory was occupied",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+rock_density_plot
+
+ggsave("F:/Gyrfalcon Survey Data/plots/rock_gyr_hist.png", plot = rock_density_plot, width = 15, height = 10, dpi = 300)
 ```
+
+#### Arctic ground squirrel
+
+```{r sq plots}
+
+
+sq_density_plot <- ggplot(squirrel_mashup2, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Arctic ground squirrel density vs. \n number of years territory was occupied by Gyrfalcons",
+    x = "Density per territory (squirrels/sqkm2)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+sq_density_plot
+
+ggsave("F:/Gyrfalcon Survey Data/plots/squirrel_gyr_hist.png", plot = sq_density_plot, width = 15, height = 10, dpi = 300)
+```
+
+# 
 
 # Plots looking at abundance within territories occupied no matter what species
 
-```{r all species plots}
+Importing csv that has number of years occupancy for all species (made in 'territory centers' script, and isolating only the columns needed.
 
+```{r}
 all_species_occ <- read.csv("F:/Gyrfalcon Survey Data/all_spec_all_terrs_occ.csv")
 
 all_species_occ2 <- all_species_occ[,c(2, 15)]
 # combine with abundance counts for each species
 
+```
+
+Match occupancy counts to species specific abundance and territory area dataframes then plot
+
+#### Willow Ptarmigan
+
+```{r all species plots}
 
 # Willow
 
 willow_mashup_allspecies <- left_join (all_species_occ2, willow_mashup, by = "GyrfalconTerritory")
 
+#fix data for T08
 
-w_mean_plot2 <- ggplot(willow_mashup_allspecies, aes(x = AbundanceMean, y = years_occ_by_all)) +
+values_to_copy <- willow_mashup[42, 2:8]
+willow_mashup_allspecies[72, 3:9] <- values_to_copy
+
+w_density_plot2 <- ggplot(willow_mashup_allspecies, aes(x = territory_density, y = years_occ_by_all)) +
   geom_point(aes(color = GyrfalconTerritory), size = 3) +
    #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
   labs(
-    title = "Squirrel mean density vs. number of years territory was occupied by any species",
-    x = "Mean density (males/640,000m2)",
-    y = "Number of Years Occupied",
+    title = "Willow Ptarmigan density vs. \n number of years territory was occupied by all species",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of years occupied by all species*",
     color = "Territory Name"
   ) +
-  theme_minimal()
+  theme_classic(base_size = 25)
 
-print(w_mean_plot2)
+w_density_plot2
 
+# *will need to make note in caption what 'all species' includes
 
-###### Need to fix row for T08 - not sure why data didn't match up
-
-
-
-# Rock
-
-rock_mashup_allspecies <- left_join(all_species_occ2, rock_mashup, by = "GyrfalconTerritory")
-
-#plot
-
-r_mean_plot2 <- ggplot(rock_mashup_allspecies, aes(x = AbundanceMean, y = years_occ_by_all)) +
-  geom_point(aes(color = GyrfalconTerritory), size = 3) +
-   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
-  labs(
-    title = "Rock Ptarmigan mean density vs. number of years territory was occupied by any species",
-    x = "Mean density (males/640,000m2)",
-    y = "Number of Years Occupied",
-    color = "Territory Name"
-  ) +
-  theme_minimal()
-
-plot(r_mean_plot2)
-
-
-
-# Squirrel
-
-squirrel_mashup_allspecies <- left_join(all_species_occ2, squirrel_mashup, by = "GyrfalconTerritory")
-
-
-###################### PLOTS ###################
-
-# Willow Mean
+ggsave("F:/Gyrfalcon Survey Data/plots/willow_all_hist.png", plot = w_density_plot2, width = 15, height = 10, dpi = 300)
 
 
 
 
 ```
 
-# Plots looking at abundance in territories occupied by a Gyrfalcon at least once since 2016
+#### Rock Ptarmigan
+
+```{r rplots2}
+
+# Rock
+
+rock_mashup_allspecies <- left_join(all_species_occ2, rock_mashup, by = "GyrfalconTerritory")
+
+values_to_copy2 <- rock_mashup[42, 2:7]
+rock_mashup_allspecies[72, 3:8] <- values_to_copy2
+
+r_density_plot2 <- ggplot(rock_mashup_allspecies, aes(x = territory_density, y = years_occ_by_all)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan density vs. \n number of years territory was occupied by all species",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of years occupied by all species*",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+r_density_plot2
+
+# *will need to make note in caption what 'all species' includes
+
+ggsave("F:/Gyrfalcon Survey Data/plots/rock_all_hist.png", plot = r_density_plot2, width = 15, height = 10, dpi = 300)
+```
+
+### Arctic ground squirrel
+
+```{r splots2}
+
+# Squirrel
+
+squirrel_mashup_allspecies <- left_join(all_species_occ2, squirrel_mashup, by = "GyrfalconTerritory")
+
+# add T08 values that didn't transfer over
+values_to_copy3 <- squirrel_mashup[42, 2:7]
+squirrel_mashup_allspecies[72, 3:8] <- values_to_copy3
+
+s_density_plot2 <- ggplot(squirrel_mashup_allspecies, aes(x = territory_density, y = years_occ_by_all)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Arctic ground squirrel density vs. \n number of years territory was occupied by all species",
+    x = "Density per territory (squirrels/sqkm)",
+    y = "Number of years occupied by all species*",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+s_density_plot2
+
+# *will need to make note in caption what 'all species' includes
+
+ggsave("F:/Gyrfalcon Survey Data/plots/squirrel_all_hist.png", plot = s_density_plot2, width = 15, height = 10, dpi = 300)
+```
+
+# Plots looking at abundance in territories occupied by a Gyrfalcon at least once since 2016, but otherwise including all species
 
 ```{r leastonegyr}
 
 least_one_gyr_occ <- read.csv("F:/Gyrfalcon Survey Data/all_spec_least1gyr_terrs_occ.csv")
-
+# get rid of columns unnecessary to make plots
 least_one_gyr_occ2 <- least_one_gyr_occ[,c(2,15)]
+
 # Combine with abundance estimates of each species
 
-# Willow
+
+```
+
+#### Willow Ptarmigan
+
+```{r wplot3}
+
 
 willow_mashup_onegyr <- left_join(least_one_gyr_occ2, willow_mashup, by = "GyrfalconTerritory")
 
+# again fix missing data for T08 that didn't transfer over
+values_to_copy4 <- willow_mashup[42, 2:8]
+willow_mashup_onegyr[44, 3:9] <- values_to_copy4
 
 
-willow_mean_plot3 <- ggplot(willow_mashup_onegyr, aes(x = AbundanceMean, y = years_occ)) +
+
+w_density_plot3 <- ggplot(willow_mashup_onegyr, aes(x = territory_density, y = years_occ)) +
   geom_point(aes(color = GyrfalconTerritory), size = 3) +
    #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
   labs(
-    title = "Willow Ptarmigan mean density vs. number years territory was occupied",
-    x = "Mean density (males/640,000m2)",
+    title = "Willow Ptarmigan mean density vs. \n number years territory was occupied",
+    x = "Density per territory (males/sqkm)",
     y = "Number of Years Occupied",
     color = "Territory Name"
   ) +
-  theme_minimal()
+  theme_classic(base_size = 25)
 
-willow_mean_plot3
+w_density_plot3
+
+ggsave("F:/Gyrfalcon Survey Data/plots/willow_all_nohist.png", plot = w_density_plot3, width = 15, height = 10, dpi = 300)
+
+```
+
+#### Rock Ptarmigan
+
+```{r rplot3}
 # Rock
 
 rock_mashup_onegyr <- left_join(least_one_gyr_occ2, rock_mashup, by = "GyrfalconTerritory")
 
+values_to_copy5 <- rock_mashup[42, 2:7]
+rock_mashup_onegyr[44, 3:8] <- values_to_copy5
+
+r_density_plot3 <- ggplot(rock_mashup_onegyr, aes(x = territory_density, y = years_occ)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan mean density vs. \n number years territory was occupied",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+r_density_plot3
+
+ggsave("F:/Gyrfalcon Survey Data/plots/rock_all_nohist.png", plot = r_density_plot3, width = 15, height = 10, dpi = 300)
+```
+
+#### Arctic ground squirrel
+
+```{r splot3}
+
 # Squirrel
 
 squirrel_mashup_onegyr <- left_join(least_one_gyr_occ2, squirrel_mashup, by = "GyrfalconTerritory")
+
+# add T08 values that didn't transfer over
+values_to_copy6 <- squirrel_mashup[42, 2:7]
+squirrel_mashup_onegyr[44, 3:8] <- values_to_copy6
+
+
+s_density_plot3 <- ggplot(squirrel_mashup_onegyr, aes(x = territory_density, y = years_occ)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Arctic ground squirrel density vs. \n number years territory was occupied by all species",
+    x = "Density per territory (squirrels/sqkm)",
+    y = "Number of Years Occupied",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+s_density_plot3
+
+ggsave("F:/Gyrfalcon Survey Data/plots/squirrel_all_nohist.png", plot = s_density_plot3, width = 15, height = 10, dpi = 300)
+```
+
+# Plots looking at abundance within territories occupied by only Gyrfalcons, not including territories with ZERO gyrfalcon occupancy since 2016
+
+```{r gyr no histterrs}
+
+# match up territory density etsimates of each species with table of years occupied by gyrfalcons then filter with table of territories occupied by gyrs at least one year
+
+
+# 1. match prey territory abundances/densities with years occupied by gyrs only
+
+# already done - these are the willow/rock/squirrel_mashup2 talbes
+
+
+# 2. filter out territories with no Gyrfalcon occupancy since 2016
+
+
+willow_gyronly_nohist <- left_join(least_one_gyr_occ2, willow_mashup2, by = "GyrfalconTerritory")
+
+# take out the column of all species occupancy so no confusion when plotting
+
+willow_gyronly_nohist <- willow_gyronly_nohist[,-c(2)]
+
+
+# copy over data from T08 that didn't copy over
+
+willow_gyronly_nohist[44, 2:9] <- willow_mashup2[42, 2:9]
+
+
+```
+
+### Willow Plot
+
+```{r wplot4}
+
+w_density_plot4 <- ggplot(willow_gyronly_nohist, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Willow Ptarmigan mean density vs. \n number years territory was occupied by Gyrfalcons",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+w_density_plot4
+
+
+ggsave("F:/Gyrfalcon Survey Data/plots/willow_gyr_nohist.png", plot = w_density_plot4, width = 15, height = 10, dpi = 300)
+```
+
+### Rock Ptarmigan
+
+```{r rplot4}
+
+rock_gyronly_nohist <- left_join(least_one_gyr_occ2, rock_mashup2, by = "GyrfalconTerritory")
+
+# take out the column of all species occupancy so no confusion when plotting
+
+rock_gyronly_nohist <- rock_gyronly_nohist[,-c(2)]
+
+
+# copy over data from T08 that didn't copy over
+
+rock_gyronly_nohist[44, 2:8] <- rock_mashup2[42, 2:8]
+
+
+# PLOT
+
+r_density_plot4 <- ggplot(rock_gyronly_nohist, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Rock Ptarmigan mean density vs. \n number years territory was occupied by Gyrfalcons",
+    x = "Density per territory (males/sqkm)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size=25)
+
+r_density_plot4
+
+ggsave("F:/Gyrfalcon Survey Data/plots/rock_gyr_nohist.png", plot = r_density_plot4, width = 15, height = 10, dpi = 300)
+
+```
+
+### Arctic ground squirrel
+
+```{r splot4}
+
+squirrel_gyronly_nohist <- left_join(least_one_gyr_occ2, squirrel_mashup2, by = "GyrfalconTerritory")
+
+# take out the column of all species occupancy so no confusion when plotting
+
+squirrel_gyronly_nohist <- squirrel_gyronly_nohist[,-c(2)]
+
+
+# copy over data from T08 that didn't copy over
+
+squirrel_gyronly_nohist[44, 2:8] <- squirrel_mashup2[42, 2:8]
+
+
+# PLOT
+
+s_density_plot4 <- ggplot(squirrel_gyronly_nohist, aes(x = territory_density, y = years_occ_by_Gyrfalcon)) +
+  geom_point(aes(color = GyrfalconTerritory), size = 3) +
+   #geom_smooth(method = "lm", se = FALSE, color = "red") +  # Adds a linear trendline
+  labs(
+    title = "Arctic ground squirrel mean density vs. \n number years territory was occupied by Gyrfalcons",
+    x = "Density per territory (squirrels/sqkm)",
+    y = "Number of Years Occupied by Gyrfalcons",
+    color = "Territory Name"
+  ) +
+  theme_classic(base_size = 25)
+
+s_density_plot4
+
+ggsave("F:/Gyrfalcon Survey Data/plots/squirrel_gyr_nohist.png", plot = s_density_plot4, width = 15, height = 10, dpi = 300)
 
 ```
 
 ```{r save workspace}
 
 save.image(file = "F:/Gyrfalcon Survey Data/abundanceXoccupancy_workspace.RData")
+```
+
+# Occupancy Analysis
+
+## Library
+
+```{r}
+
+library(unmarked)
+```
+
+## Load Data
+
+We'll be able to filter out the 72 territories we were using above with one of those dataframes but we need some more of the survey data so we'll bring back in the original dataframe because we also need the secondary survey data
+
+```{r}
+og_data <- read.csv("F:/Gyrfalcon Survey Data/Booms/BoomsGyrfalonTerritorySurveys.csv")
+
+
+
+
+```
+
+## Clean and transform
+
+```{r clean and filter}
+
+# filter out territories 
+
+# make list of the 72 territory names
+terrs_to_keep <- gyr_occ$GyrfalconTerritory
+
+
+# now keep only those rows that have one of these names in the territory name column
+
+filtered_occ_df <- og_data %>%
+  filter(GyrfalconTerritory %in% terrs_to_keep)
+
+
+# take out unecessary columns
+
+filtered_occ_df2 <- filtered_occ_df[,c(1:10, 12)]
+
+# need to filter out years before 2016:
+
+filtered_occ_df3 <- filtered_occ_df2 %>%
+  filter(SurveyYear >= 2016 & SurveyYear <= 2022)
+
+# some rows are duplicates for the same survey for the same territory and site ID - lets consolidate those first. But the 'common_name' is different between the two, some have a species and the second duplicate row has NULL, so in this case we'll keep the value that isn't 'NULL'
+
 ```
