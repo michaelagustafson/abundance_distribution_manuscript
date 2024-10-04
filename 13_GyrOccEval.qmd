@@ -1,0 +1,418 @@
+---
+title: "GyrOccEval"
+format: html
+editor: visual
+---
+
+# Library
+
+```{r lib}
+library( unmarked)
+library(AICcmodavg)
+library(ggplot2)
+library(dplyr)
+
+```
+
+# Occupancy Evaluation
+
+## Model fit and evaluation
+
+```{r mfit}
+
+# We assess goodness of fit (GoF) on detection frequencies, which relies on a #
+# Pearson chi-square to assess fit as suggested by Mackenzie and Bailey (2004) #
+# J. Agr., Bio. & Env. Stats. 9: 300-318
+# using AICmodavg package
+gof.boot <- AICcmodavg::mb.gof.test( unm1, nsim = 1000 )
+#view
+gof.boot
+
+chitable <- mb.chisq( unm1 )
+
+chitable
+
+#we also compare against null model using pseudo R^2
+
+# We can also evaluate how well our full model did against the null model # 
+# by estimating pseudo-R^2, based on Nagelkerke, N.J.D. (1991) A Note #
+# on a General Definition of the Coefficient of Determination. Biometrika 78,#
+# pp. 691-692.#
+# (1 - R^2) represents the proportion of unexplained variation in the model
+# We create a reduced model list with only our two models of interest:
+rms <- fitList( 'psi(full)p(jday)' = unm1,
+                'psi(.)p(.)' = unm0 )
+# Then use model selection function from unmarked but this time we define #
+# which one our null model is:
+unmarked::modSel(rms, nullmod = "psi(.)p(.)" )
+
+
+```
+
+# Producing model output
+
+## Partial Prediction Plots
+
+```{r scale}
+
+# To create nice plots we need to create new vectors with evenly #
+# spaced predictors within their actual observed range: #
+# how many values do we use:
+n <- 100
+# we use the observed values to define our range:
+willow <- seq( min( occdf[,"willow"]),max( occdf[,"willow"]),
+                  length.out = n )
+rock <- seq( min( occdf[,"rock"]),max( occdf[,"rock"]),
+                  length.out = n )
+squirrel <- seq( min( occdf[,"squirrel"]),max( occdf[,"squirrel"]),
+                  length.out = n )
+#standardize them
+will.std <- scale( willow )
+rock.std <- scale( rock )
+squir.std <- scale (squirrel)
+
+
+```
+
+### Willow Ptarmigan density and Gyrfalcon occupancy
+
+```{r wplot}
+
+# Willow Ptarmigan
+#combine standardized predictor into a new dataframe to predict partial relationship
+# with sagebrush. We replace value of other predictor with its mean
+willData <- data.frame( willow = will.std, rock = 0, squirrel = 0, year = factor( "2016", levels = c( "2016", "2017", "2018", "2019", "2021", "2022")))
+
+#predict partial relationship between willow ptarmigan density and occupancy
+pred.occ.will <- predict( unm1, type = "state", newdata = willData, 
+                          appendData = TRUE )
+#view
+head( pred.occ.will ); dim( pred.occ.will )
+
+
+#Starting with willow and occupancy:
+# select the predicted values we want to plot and combine with unscaled predictor
+willp <- cbind( pred.occ.will[,c("Predicted", "lower", "upper") ], willow ) %>%
+  # define x and y values
+  ggplot(., aes( x = willow, y = Predicted ) ) + 
+  #choose preset look
+  theme_classic( base_size = 32) +
+  # add labels
+  labs( x = "Willow Ptarmigan density (males/sqkm)", y = "Predicted Gyrfalcon occupancy" ) +
+  # add band of confidence intervals
+   geom_smooth( aes(ymin = lower, ymax = upper ), 
+               stat = "identity",
+               size = 5, alpha = 0.5, fill = "#A8CAE9" ) +
+  # add mean line on top
+  geom_line( size = 5, color = "#0072B2" ) 
+#view
+willp
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/willow_gyrocc.png", width = 11, height = 10, dpi = 300)
+```
+
+### Rock Ptarmigan density and GyrfalconOccupancy
+
+```{r rplot}
+#Rock Ptarmigan
+#combine standardized predictor into a new dataframe to predict partial relationship
+# with rock ptarmigan We replace value of other predictor with its mean
+rockData <- data.frame( willow = 0, rock = rock.std, squirrel = 0, year = factor( "2016", levels = c( "2016", "2017", "2018", "2019", "2021", "2022")))
+
+#predict partial relationship between rock ptarmigan and occupancy
+pred.occ.rock <- predict( unm1, type = "state", newdata = rockData, 
+                          appendData = TRUE )
+
+
+
+rockp <- cbind( pred.occ.rock[,c("Predicted", "lower", "upper") ], rock ) %>%
+  # define x and y values
+  ggplot(., aes( x = rock, y = Predicted ) ) + 
+  #choose preset look
+ theme_classic( base_size = 32) +
+  # add labels
+  labs( x = "Rock Ptarmigan density (males/sqkm)", y = "Predicted Gyrfalcon occupancy" ) +
+  # add band of confidence intervals
+  geom_smooth( aes(ymin = lower, ymax = upper ), 
+               stat = "identity",
+               size = 5, alpha = 0.5, fill = "#E1C5E4" ) +
+  # add mean line on top
+  geom_line( size = 5, color = "#9B59A9")
+#view
+rockp
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/rock_gyrocc.png", width = 11, height = 10, dpi = 300)
+
+```
+
+### Arctic Ground Squirrel density and Gyrfalcon Occupancy
+
+```{r splot}
+
+# Arctic ground squirrel
+squirData <- data.frame( willow = 0, rock = 0, squirrel = squir.std, year = factor( "2016", levels = c( "2016", "2017", "2018", "2019", "2021", "2022")))
+
+#predict partial relationship between rock ptarmigan and occupancy
+pred.occ.squir <- predict( unm1, type = "state", newdata = squirData, 
+                          appendData = TRUE )
+
+squirp <- cbind( pred.occ.squir[,c("Predicted", "lower", "upper") ], squirrel ) %>%
+  # define x and y values
+  ggplot(., aes( x = squirrel, y = Predicted ) ) + 
+  #choose preset look
+  theme_classic( base_size = 32) +
+  # add labels
+  labs( x = "Arctic ground squirrel density (squirrels/sqkm)", y = "Predicted Gyrfalcon occupancy" ) +
+  # add band of confidence intervals
+  geom_smooth( aes(ymin = lower, ymax = upper ), 
+               stat = "identity",
+               size = 5, alpha = 0.5, fill = "#F7C57E" ) +
+  # add mean line on top
+  geom_line( size = 5, color = "#E47A00")
+#view
+squirp
+
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/squir_gyrocc.png", width = 11, height = 10, dpi = 300)
+```
+
+### Year and Gyrfalcon Occupancy
+
+```{r yearplot}
+
+# Year effect
+
+#combine standardized predictor into a new dataframe to predict partial relationship
+# with year We set year effect as year2016
+
+yearData <- data.frame( year = factor( c("2016", "2017","2018", "2019", "2021", "2022"), 
+                       levels = c("2016", "2017","2018", "2019", "2021", "2022") ), 
+                      willow = 0, rock = 0, squirrel = 0)
+
+#predict partial relationship between year and occupancy
+pred.occ.year <- predict( unm1, type = "state", newdata = yearData, 
+                          appendData = TRUE )
+
+yearp.occ <- pred.occ.year %>%
+  # define x and y values
+  ggplot(., aes( x = year, y = Predicted ) ) + 
+  #choose preset look
+  theme_classic( base_size = 32) +
+  #remove legend
+  theme( legend.position = "none" ) +
+  # add labels
+  labs( x = "Year", y = "Predicted Gyrfalcon occupancy" ) +
+  #add mean occupancy for each year
+  geom_point( size = 4 ) +
+  # add confidence intervals
+  geom_errorbar( aes(ymin = lower, ymax = upper ), 
+               size = 1.5, width = 0.3 ) 
+#view
+yearp.occ
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/year_gyrocc.png", width = 11, height = 10, dpi = 300)
+```
+
+### Jday and Detection
+
+```{r jday plot}
+
+# pulled these manually from occdf since there are NA in df
+
+min_jday <- "121"
+max_jday <- "183"
+
+n = 100
+
+jday1 <- seq( min_jday, max_jday,
+                  length.out = n )
+jday.std <- scale( jday1 )
+
+unique(occdf$territory)
+
+jdayData <- data.frame( jday = jday.std, territory = factor(
+  occdf.sc$territory[1], levels = unique( occdf.sc$territory )))
+
+pred.det.jday <- predict( unm1, type = "det", newdata = jdayData, 
+                          appendData = TRUE )
+
+head(pred.det.jday); dim(pred.det.jday)
+
+# plot
+
+jdayp.det <- pred.det.jday %>%
+  # define x and y values
+  ggplot(., aes( x = jday1, y = Predicted ) ) + 
+  #choose preset look
+  theme_classic( base_size = 32) +
+  #remove legend
+  theme( legend.position = "none" ) +
+  # add labels
+  labs( x = "Day of year", y = "Predicted Gyrfalcon detection" ) +
+  #add mean occupancy for each year
+  geom_smooth( aes(ymin = lower, ymax = upper ), 
+               stat = "identity",
+              size = 1.5, alpha = 0.5, color = "grey" ) +
+  # add mean line on top
+  geom_line( linewidth = 2 ) 
+#view
+jdayp.det
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/jday_gyrdet.png", width = 11, height = 10, dpi = 300)
+
+```
+
+# 95% CI Dot+Whisker Plots
+
+## State
+
+```{r dotplots}
+
+# with occupancy model environment loaded
+pmod_summary <- summary(unm1)
+
+estimates <- as.data.frame(pmod_summary$state$Estimate)
+
+ci_table <- data.frame(confint(unm1, type = "state"))
+lower_ci <- ci_table$X0.025
+upper_ci <- ci_table$X0.975
+
+results_df <- data.frame(
+  Mean_estimate = estimates,
+  Lower_95CI = lower_ci,
+  Upper_95CI = upper_ci,
+  Coefficient = rownames(ci_table)
+)
+
+results_df
+
+# Rename:
+  
+results_df$Coefficient[results_df$Coefficient == "psi(Int)"] <- "Intercept"
+results_df$Coefficient[results_df$Coefficient == "psi(willow)"] <- "Willow Ptarmigan"
+
+results_df$Coefficient[results_df$Coefficient == "psi(rock)"] <- "Rock Ptarmigan"
+
+results_df$Coefficient[results_df$Coefficient == "psi(squirrel)"] <- "Arctic ground squirrel"
+
+
+names(results_df)[names(results_df) == "pmod_summary.state.Estimate"] <- "Mean"
+
+state_df <- results_df[-c(1),]
+
+pd <- position_dodge(0.78)
+
+group_colors <- c("Willow Ptarmigan" = "#0072B2", "Rock Ptarmigan" = "#9B59A9", "Arctic ground squirrel" = "#E47A00")
+
+dotplot <- ggplot(state_df, aes(x=Mean, y = Coefficient)) +
+  #draws the means
+  theme_classic(base_size = 16) +
+  geom_point(position= pd, aes(color=Coefficient), size = 3) +
+  scale_colour_manual(values = group_colors)+
+  #draws the CI error bars
+  geom_errorbar(data=state_df, aes(xmin=Lower_95CI, xmax=Upper_95CI, 
+                                color=Coefficient), linewidth = 2, width=0, position=pd) +
+  labs(x = "Standardized coefficient (95% CI)", y = "Occupancy Parameter")+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkgrey", linewidth = 2) +
+  theme(legend.position = "none")  # Remove the legend
+
+                                      
+                                        
+dotplot
+
+#ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/stateocc_dotplot.png", width = 10, height = 7, dpi = 300)
+```
+
+## Detection
+
+```{r dotplotdet}
+confint(unm1, type = "det")
+
+
+summary(unm1)
+estimatesd <- as.data.frame(pmod_summary$det$Estimate)
+
+ci_tabled <- data.frame(confint(unm1, type = "det"))
+lower_cid <- ci_tabled$X0.025
+upper_cid <- ci_tabled$X0.975
+
+results_dfd <- data.frame(
+  Mean_estimate = estimatesd,
+  Lower_95CI = lower_cid,
+  Upper_95CI = upper_cid,
+  Coefficient = rownames(ci_tabled)
+)
+
+results_dfd
+
+# Rename:
+  
+results_dfd$Coefficient[results_dfd$Coefficient == "p(Int)"] <- "Intercept"
+results_dfd$Coefficient[results_dfd$Coefficient == "p(jday)"] <- "Day of year"
+
+
+
+names(results_dfd)[names(results_dfd) == "pmod_summary.det.Estimate"] <- "Mean"
+
+
+pd <- position_dodge(0.78)
+
+det_df <- results_dfd[-c(1),]
+
+dotplotd <- ggplot(det_df, aes(x=Mean, y = Coefficient)) +
+  #draws the means
+  theme_classic(base_size = 16) +
+  geom_point(position= pd, size = 3) +
+  #scale_colour_manual(values = group_colors)+
+  #draws the CI error bars
+  geom_errorbar(data=det_df, aes(xmin=Lower_95CI, xmax=Upper_95CI), linewidth = 2, width=0, position=pd) +
+  labs(x = "Standardized coefficient (95% CI)", y = "Detection Parameter")+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkgrey", linewidth = 2) +
+  theme(legend.position = "none")  # Remove the legend
+
+                                      
+                                        
+dotplotd
+
+#ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/detocc_dotplot.png", width = 10, height = 7, dpi = 300)
+
+
+```
+
+## Combine whisker plots
+
+```{r combplot}
+
+state_df
+det_df
+
+
+pp_df <- bind_rows(state_df, det_df)
+pp_df
+
+pp_df$Coefficient <- factor(pp_df$Coefficient, levels = c("Willow Ptarmigan", "Rock Ptarmigan", "Arctic ground squirrel", "Day of year"))
+
+pd <- position_dodge(0.78)
+
+group_colors2 <- c("Willow Ptarmigan" = "#0072B2", "Rock Ptarmigan" = "#9B59A9", "Arctic ground squirrel" = "#E47A00", "Day of year" = "black")
+
+all_dplot <- ggplot(pp_df, aes(x=Mean, y = Coefficient)) +
+  #draws the means
+  theme_classic(base_size = 38) +
+  geom_point(position= pd, aes(color=Coefficient), size = 3) +
+  scale_colour_manual(values = group_colors2)+
+  #draws the CI error bars
+  geom_errorbar(data=pp_df, aes(xmin=Lower_95CI, xmax=Upper_95CI, 
+                                color=Coefficient), linewidth = 2, width=0, position=pd) +
+  labs(x = "Standardized coefficient (95% CI)")+
+  geom_vline(xintercept = 0, linetype = "dashed", color = "darkgrey", linewidth = 2) +
+  theme(legend.position = "none",
+        axis.title.y = element_blank() ) + # Remove the legend
+  coord_fixed(ratio = 0.40)
+ 
+                                      
+all_dplot
+
+ggsave("F:/Species Distribution Manuscript 2024/Submission for Ecology and Evolution/Second Round - Revisions/all_dotplot.png", width = 15, height = 10, dpi = 300)
+
+```
