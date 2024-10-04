@@ -1,0 +1,137 @@
+---
+title: "Gyrfalcon Occupancy Analysis"
+format: html
+editor: visual
+---
+
+# Library
+
+```{r library}
+#install.packages( "MuMIn") # package for model selection and evaluation
+#install.packages( "tidyverse" )
+#install.packages( "ubms")
+
+library(tidyverse)
+library(unmarked)
+library(MuMIn)
+#library(ubms)
+
+
+```
+
+# Load Data
+
+Load occupancy data frame and prey densities per territory and combine
+
+```{r loaddata}
+getwd()
+
+occdf <- read.csv(paste0(getwd(), "/data/widedf.csv"))
+head(occdf)
+
+unique(as.factor(occdf$territory))
+
+# how many surveys were missed due to weather/logistics
+na_counts_base <- colSums(is.na(occdf)) # 47 + 13 = 60
+
+
+prey <- read.csv(paste0(getwd(), "/data/allprey_terrdensity.csv"))
+prey <- prey[,-c(1)]
+```
+
+### Add prey densities to territories
+
+```{r}
+
+occdf <- left_join(occdf, prey, by = "territory")
+
+# change column names
+colnames(occdf)[colnames(occdf) == "w_territory_density"] ="willow"
+colnames(occdf)[colnames(occdf) == "r_territory_density"] ="rock"
+colnames(occdf)[colnames(occdf) == "s_territory_density"] ="squirrel"
+```
+
+# Make our unmarkedFrame
+
+```{r frame}
+
+# Let's define our unmarked dataframe:
+
+# scale prey densities
+
+occdf.sc <- occdf
+
+prey.sc <- occdf[,c(8:10)]
+prey.sc <- apply(prey.sc, MARGIN = 2, FUN = scale)
+
+#replace in df
+occdf.sc[,c(8:10)] <- prey.sc
+
+# change year to factor
+occdf.sc$year <- as.factor(occdf.sc$year)
+occdf.sc$territory <- as.factor(occdf.sc$territory)
+#levels(occdf.sc$territory)
+
+# #scale jday
+# jsc <- scale(as.vector(rbind( occdf.sc$jday_1, occdf.sc$jday_2)))
+# jsc[is.na(jsc)] <- 0
+# #length(jsc)
+# occdf.sc$jday_1 <- jsc[1:dim(occdf.sc)[1]]
+# occdf.sc$jday_2 <- jsc[(1+dim(occdf.sc)[1]):length(jsc)]
+
+#there were two instances when 2 gyr nests were detected
+#in the same territory. Changing those values to 1
+occdf.sc$pres_1[ which(occdf.sc$pres_1 == 2) ] <- 1
+occdf.sc$pres_2[ which(occdf.sc$pres_2 == 2) ] <- 1
+
+unmf <- unmarkedFrameOccu( y = as.matrix( occdf.sc[ ,c("pres_1", "pres_2")]),
+      # Define predictors at the site level:
+      siteCovs = occdf.sc[ ,c("willow", "rock", "squirrel", "year", "territory")],
+    # Define predictors at the survey level as a list:
+    obsCovs = list( jday = occdf.sc[ ,c("jday_1", "jday_2")] ) ) 
+
+
+# scale jday after since its in one big list, if had scaled it before it would have been in 2 separate columns and scaled values would not have accounted for the earlier or later survey dates in the other column?
+
+sc <- apply( obsCovs(unmf), MARGIN = 2, FUN = scale )
+obsCovs( unmf ) <- sc
+summary(unmf)
+### end data prep -----------
+
+```
+
+# unmarked analysis
+
+```{r unmanaly}
+
+unm1 <- occu( ~1 + jday + (1 | territory) ~1 + willow + rock + squirrel + (1| year), data = unmf)
+
+summary(unm1)
+
+unm0 <- occu( ~1 ~1 , data = unmf)
+
+#test with old model
+unm2 <- occu( ~1 + jday ~1 + willow + rock + squirrel + year, data = unmf)
+#psi
+plogis(0.1142552)
+# 0.5285328 mean occupancy
+
+#p
+plogis(0.1264970)
+# 0.5315821 mean detection
+
+```
+
+## Confidence Intervals
+
+```{r ci}
+
+confint( unm1, type = "state" )
+
+# willow ptarmigan and squirrel are significant!
+
+
+confint(unm1, type = "det")
+
+# jday is significant
+```
